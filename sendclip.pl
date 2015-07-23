@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use IO::Socket::INET;
 use Getopt::Long;
-my $host='W01B6SBL.UBSPROD.MSAD.UBS.NET';
+my $host='127.0.0.1';
 my $port=7778;
 my $max_chunk = 512;
 my $verbose;
