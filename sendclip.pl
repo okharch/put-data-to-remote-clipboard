@@ -1,10 +1,12 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
+# sendinig STDIN to clipboard
 use strict;
 use warnings;
 use IO::Socket::INET;
 use Getopt::Long;
-my $host='127.0.0.1';
+my $host='W01B6SBL.UBSPROD.MSAD.UBS.NET';
 my $port=7778;
+my $max_chunk = 512;
 my $verbose;
 GetOptions('host=s'=>\$host,'port=i'=>\$port,'verbose'=>\$verbose);
 
@@ -23,9 +25,14 @@ die "cannot connect to the server $!\n" unless $socket;
 print STDERR "connected to the server $host:$port\n" if $verbose;
  
 # data to send to a server
-my $req = join "\012",map {chomp;$_} <>;
-my $size = $socket->send(pack("L",length($req)).$req);
-print STDERR "sent data of length $size\n" if $verbose;
+while (<>) {
+	my $l = length;
+	my $i = 0;
+	while ($i < $l) {
+		$socket->send(substr($_,$i,$max_chunk));
+		$i += $max_chunk;
+	}
+}
  
 # notify server that request has been sent
 shutdown($socket, 1);
