@@ -1,3 +1,4 @@
+#!/usr/bin/env perl
 # Clipboard module copypasted here
 package Clipboard;
 our $VERSION = '0.13';
@@ -77,7 +78,7 @@ sub copy_to_selection {
 sub paste {
     my $self = shift;
     for ($self->all_selections) {
-        my $data = $self->paste_from_selection($_); 
+        my $data = $self->paste_from_selection($_);
         return $data if length $data;
     }
     undef
@@ -106,13 +107,14 @@ Clipboard->import;
 use Getopt::Long;
 my $EOL = Clipboard->find_driver($^O) eq 'Win32'?"\015\012":"\n";
 my $port=7778;
+my $max_chunk = 512;
 my $verbose;
 GetOptions('port=i'=>\$port,'verbose'=>\$verbose);
 
- 
+
 # auto-flush on socket
 $| = 1;
- 
+
 # creating a listening socket
 my $socket = new IO::Socket::INET (
     LocalHost => '0.0.0.0',
@@ -124,38 +126,35 @@ my $socket = new IO::Socket::INET (
 
 die "cannot create socket $!\n" unless $socket;
 print "server waiting for client connection on port $port\n";
- 
+
 while(1)
 {
     # waiting for a new client connection
-    my $client_socket = $socket->accept(); 
+    my $client_socket = $socket->accept();
     # get information about a newly connected client
     my $client_address = $client_socket->peerhost();
     my $client_port = $client_socket->peerport();
-    print "connection from $client_address:$client_port\n"; 
-	my $data = get_data($client_socket);
-	Clipboard->copy($data);
+    print "connection from $client_address:$client_port\n";
+    my $data = get_data($client_socket);
+    my $size = length($data);
+    print "connection from $client_address:$client_port $size bytes received\n";
+    Clipboard->copy($data);
     # notify client that response has been sent
     shutdown($client_socket, 1);
 }
- 
+
 $socket->close();
 
 sub get_data {
-	my $client_socket = shift;
-	my $data = "";
-	$client_socket->recv($data, 4);
-	my $length = unpack("L", $data);
-	my @data = ();
-	while ($length > 0) {
-		$data = "";
-		my $read_length = $length > 1024? 1024 : $length;
-		$client_socket->recv($data, $read_length);
-		push @data,$data;
-		$length -= $read_length;
-	}
-	$data = join "",@data;
-	$data = join $EOL,split /\012/,$data unless $EOL eq "\012";
-	return $data;
+    my $client_socket = shift;
+    my (@data,$data);
+    while (1) {
+        my $ok = $client_socket->recv($data, $max_chunk);
+        last unless $ok && $data;
+        push @data,$data;
+    }
+    $data = join "",@data;
+    $data = join $EOL,split /\012/,$data unless $EOL eq "\012";
+    return $data;
 }
 
